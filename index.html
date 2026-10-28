@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Campfire">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#0a0b0b">
+<title>Campfire Composer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6c6 12 18 18 14 34-2 9-8 14-14 14S20 49 18 40c-3-11 6-15 6-24 5 4 6 9 6 13 3-6 4-13 2-23z' fill='%23ff8a3d'/%3E%3Cpath d='M32 30c3 6 8 9 6 16-1 4-3 6-6 6s-5-2-6-6c-1-6 3-7 3-11 2 2 2 4 2 5 1-3 2-6 1-10z' fill='%23ffd166'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css?v=26">
+</head>
+<body>
+<div id="bg" aria-hidden="true"><canvas id="embers"></canvas></div>
+<a class="skip" href="#editor-grid">Skip to the note grid</a>
+
+<!-- ============ START SCREEN ============ -->
+<div id="start" class="screen" role="main">
+  <div class="start-inner">
+    <div class="start-hero">
+      <div class="logo" aria-hidden="true">🔥</div>
+      <h1>Campfire Composer</h1>
+      <p class="tagline">Make music for your game. No instruments or experience needed.</p>
+    </div>
+    <div id="resume-box"></div>
+    <div class="start-grid">
+      <button class="start-card" data-start="beat"><span class="sc-emoji">🥁</span><b>Start from a beat</b><span>Pick a drum groove, then build on top of it.</span></button>
+      <button class="start-card" data-start="melody"><span class="sc-emoji">🎹</span><b>Start from a melody</b><span>Play or click in a tune. We'll give you a starter to tweak.</span></button>
+      <button class="start-card featured" data-start="mood"><span class="sc-emoji">🗺️</span><b>Use a game mood</b><span>Cozy town, dungeon, boss fight… A full loop ready to remix.</span></button>
+      <button class="start-card" data-start="blank"><span class="sc-emoji">📄</span><b>Open a blank project</b><span>An empty canvas with drums and a piano.</span></button>
+    </div>
+    <div id="start-sub" class="start-sub" hidden></div>
+    <div class="start-row">
+      <button class="btn ghost" id="start-open">📂 Open a saved song file…</button>
+      <button class="btn ghost" id="start-help">❓ How does this work?</button>
+    </div>
+    <div id="recent-box"></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" hidden>
+  <header class="topbar" role="banner">
+    <button class="brand" id="home-btn" data-tip="Back to the start screen (your song is autosaved)." aria-label="Home">🔥</button>
+    <input id="song-name" class="song-name" aria-label="Song name" spellcheck="false">
+    <div class="transport" role="group" aria-label="Playback">
+      <button id="play-btn" class="btn play" data-tip="Play or stop (Space)">▶ Play</button>
+      <div class="seg" role="radiogroup" aria-label="What to play">
+        <button data-playmode="section" role="radio" data-tip="Loop the section you're editing, over and over.">This section</button>
+        <button data-playmode="song" role="radio" data-tip="Play all sections in song order.">Whole song</button>
+      </div>
+      <span id="pos-display" class="pos" aria-live="off">Bar 1</span>
+    </div>
+    <label class="field" data-tip="Tempo: how fast the music goes, in beats per minute (BPM). 70 = slow and calm, 120 = walking pace, 160 = intense.">
+      <span><span class="lbl">Speed (</span>BPM<span class="lbl">)</span></span><input id="bpm" type="number" min="40" max="240" step="1" aria-label="Tempo in BPM">
+    </label>
+    <label class="field" data-tip="The key is the 'home note' of your song. Changing it moves all your notes up or down together.">
+      <span>Key</span><select id="key-sel" aria-label="Key"></select>
+    </label>
+    <label class="field" data-tip="The scale sets the mood: which notes sound good together. Major = happy, minor = sad or serious.">
+      <span>Scale</span><select id="scale-sel" aria-label="Scale"></select>
+    </label>
+    <label class="toggle" data-tip="Stay in key: the grid only shows notes that fit, and the keyboard snaps to good notes. Turn off to use every note.">
+      <input type="checkbox" id="stay-key"><span><span class="lbl">Stay in key</span><span class="lbl-short">In key</span></span>
+    </label>
+    <div class="spacer"></div>
+    <button class="btn icon" id="undo-btn" data-tip="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button class="btn icon" id="redo-btn" data-tip="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+    <span id="save-state" class="save-state" aria-live="polite" data-tip="Your song is saved automatically in this app as you work.">Saved</span>
+    <button class="btn" id="new-btn" aria-label="New song" data-tip="Start a new song (your current one stays in Your songs)">✨<span class="lbl"> New</span></button>
+    <button class="btn" id="save-btn" aria-label="Save" data-tip="Save your song to a file you can keep or back up (Ctrl+S). Your work is also autosaved in this app.">💾<span class="lbl"> Save</span></button>
+    <button class="btn" id="open-btn" aria-label="Open" data-tip="Open a .campfire song file">📂<span class="lbl"> Open</span></button>
+    <button class="btn accent" id="export-btn" data-tip="Download your music as WAV, MP3, MIDI, stems, or a game-ready pack (Ctrl+E)">⬇ Export</button>
+    <div class="seg small" role="radiogroup" aria-label="Interface level">
+      <button data-level="beginner" role="radio" data-tip="Simple controls only.">Simple</button>
+      <button data-level="advanced" role="radio" data-tip="Show detailed settings: panning, velocity, sound design, layers.">Advanced</button>
+    </div>
+    <button class="btn icon" id="settings-btn" data-tip="Settings: text size, contrast" aria-label="Settings">⚙</button>
+    <button class="btn icon" id="help-btn" data-tip="Help and keyboard shortcuts (?)" aria-label="Help">?</button>
+  </header>
+
+  <section class="timeline" aria-label="Sections and song order">
+    <div class="tl-row">
+      <div class="tl-label" data-tip="Sections are short loops, like 'Explore' or 'Combat'. Click one to edit it.">Sections</div>
+      <div id="section-list" class="section-list" role="listbox" aria-label="Sections"></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-label" data-tip="The order sections play in when you press 'Whole song'. Colors show the mood: blue calm, yellow tense, red intense. Drag to reorder.">Song order</div>
+      <div id="arrangement" class="arrangement" aria-label="Song order"></div>
+    </div>
+    <div class="tl-row wave-row">
+      <div class="tl-label" data-tip="The real sound wave of your whole song, in song order. Tall parts are loud, thin parts are quiet. It updates a moment after you change something. Click a part to edit that section.">Sound wave</div>
+      <div class="wave-wrap"><canvas id="wave" aria-label="Waveform of the whole song"></canvas><span id="wave-status" class="wave-status"></span></div>
+      <canvas id="spectrum" aria-hidden="true" data-tip="Live levels while music plays: low notes on the left, high notes on the right."></canvas>
+      <button class="btn small" id="eq-btn" data-tip="EQ: make the whole song warmer, brighter or bassier. Also changes your exports.">🎚 EQ</button>
+    </div>
+  </section>
+
+  <main class="workspace">
+    <aside class="tracks" aria-label="Instruments">
+      <div class="panel-title">Instruments</div>
+      <div id="track-list" class="track-list"></div>
+      <button class="btn add-track" id="add-track">＋ Add an instrument</button>
+    </aside>
+
+    <section class="editor" aria-label="Note editor">
+      <div class="editor-bar" id="editor-bar"></div>
+      <div id="editor-notice" class="editor-notice" hidden></div>
+      <div class="grid-scroll" id="grid-scroll">
+        <div class="grid-content" id="grid-content">
+          <div class="grid-corner" id="grid-corner"></div>
+          <canvas class="grid-header" id="grid-header"></canvas>
+          <canvas class="grid-keys" id="grid-keys"></canvas>
+          <div class="grid-main">
+            <canvas id="editor-grid" class="grid-canvas" tabindex="0" role="application" aria-label="Note grid. Arrow keys move, Enter adds or removes a note, Delete removes."></canvas>
+            <div class="playhead" id="playhead"></div>
+          </div>
+          <div class="vel-label" id="vel-label">Loudness</div>
+          <canvas class="vel-lane" id="vel-lane" aria-label="Note loudness lane"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side" aria-label="Helpers">
+      <div class="tabs" role="tablist" id="side-tabs">
+        <button role="tab" data-tab="make" class="tab-make"><span class="ti" aria-hidden="true">🎲</span>Make it</button>
+        <button role="tab" data-tab="ideas"><span class="ti" aria-hidden="true">🎼</span>Chords</button>
+        <button role="tab" data-tab="vary"><span class="ti" aria-hidden="true">✨</span>Change it</button>
+        <button role="tab" data-tab="sound"><span class="ti" aria-hidden="true">🎛</span>Sound</button>
+        <button role="tab" data-tab="game"><span class="ti" aria-hidden="true">🎮</span>Game</button>
+        <button role="tab" data-tab="code"><span class="ti" aria-hidden="true">⌨</span>Code</button>
+      </div>
+      <div class="side-body" id="side-body" role="tabpanel"></div>
+    </aside>
+  </main>
+
+  <footer class="surface" aria-label="Playable instrument">
+    <div class="surface-bar" id="surface-bar"></div>
+    <div class="surface-body" id="surface-body"></div>
+  </footer>
+</div>
+
+<div id="modal-root"></div>
+<div id="tooltip" role="tooltip" hidden></div>
+<div id="toast" aria-live="polite"></div>
+<input type="file" id="file-open" accept=".campfire,.json,application/json" hidden>
+<input type="file" id="file-sample" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a" hidden>
+
+<script src="js/lib/lame.min.js?v=26"></script>
+<script src="js/theory.js?v=26"></script>
+<script src="js/engine.js?v=26"></script>
+<script src="js/instruments.js?v=26"></script>
+<script src="js/song.js?v=26"></script>
+<script src="js/generate.js?v=26"></script>
+<script src="js/storage.js?v=26"></script>
+<script src="js/theme.js?v=26"></script>
+<script src="js/export.js?v=26"></script>
+<script src="js/ui-core.js?v=26"></script>
+<script src="js/wave.js?v=26"></script>
+<script src="js/ui-editor.js?v=26"></script>
+<script src="js/ui-surface.js?v=26"></script>
+<script src="js/ui-panels.js?v=26"></script>
+<script src="js/ui-side.js?v=26"></script>
+<script src="js/ui-modals.js?v=26"></script>
+<script src="js/app.js?v=26"></script>
+</body>
+</html>
