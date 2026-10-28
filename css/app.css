@@ -231,7 +231,7 @@ details.api pre { white-space: pre-wrap; font-size: .78rem; background: #0f0e15;
 .surface { background: var(--panel); border-top: 1px solid var(--line); }
 .surface-bar { display: flex; align-items: center; gap: .5rem; padding: .35rem .7rem; flex-wrap: wrap; font-size: .88rem; }
 .surface.collapsed .surface-body { display: none; }
-.surface-body { height: 9.5rem; padding: 0 .7rem .6rem; overflow-x: auto; overflow-y: hidden; }
+.surface-body { height: var(--surface-h, 9.5rem); padding: 0 .7rem .6rem; overflow-x: auto; overflow-y: hidden; }
 .piano { position: relative; height: 100%; user-select: none; touch-action: none; }
 .wkey { position: absolute; top: 0; bottom: 0; z-index: 1; background: linear-gradient(#fdfaf4, #e8e2d6); border: 1px solid #555; border-radius: 0 0 7px 7px; cursor: pointer; color: #333; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: .3rem; font-size: .72rem; }
 .wkey.out { background: linear-gradient(#cfcac0, #b9b3a7); color: #666; }
@@ -304,7 +304,7 @@ details.api pre { white-space: pre-wrap; font-size: .78rem; background: #0f0e15;
   body.side-hidden .side { display: none; }
 }
 @media (max-height: 820px) {
-  .surface-body { height: 6.6rem; }
+  .surface-body { height: var(--surface-h, 6.6rem); }
   .timeline { padding: .2rem .7rem .3rem; gap: .15rem; }
   .tl-row { min-height: 2rem; }
 }
@@ -584,3 +584,46 @@ select option { background: var(--panel2); }
   .side { position: static; grid-column: 1 / -1; width: auto; box-shadow: none; overflow: auto; }
   body.side-hidden .side { display: flex; }
 }
+
+/* ---------- Making room: fold the side panel and top section, resize the instrument ---------- */
+.surface { position: relative; }
+.surface-grip { height: 12px; margin: -2px 0 -6px; display: flex; justify-content: center; align-items: center; cursor: ns-resize; touch-action: none; }
+.surface-grip span { width: 56px; height: 4px; background: var(--line); }
+.surface-grip:hover span { background: var(--accent); }
+.timeline { position: relative; }
+.tl-toggle { position: absolute; right: .5rem; top: .35rem; z-index: 2; }
+body.tl-compact .timeline .tl-row:not(:first-child) { display: none; }
+.timeline .tl-row:first-child .section-list { padding-right: 5.5rem; }
+.side-toggle { flex: 0 0 auto !important; margin-left: auto; min-width: 2rem; font-size: 1.1rem !important; color: var(--muted); background: none; border: 0; cursor: pointer; }
+.side-toggle:hover { color: var(--text); }
+body.side-collapsed .workspace { grid-template-columns: 15.5rem 1fr 3rem; }
+body.side-collapsed .side-body { display: none; }
+body.side-collapsed .side .tabs { flex-direction: column; overflow: visible; }
+body.side-collapsed .side .tabs button { font-size: 0; padding: .55rem 0; }
+body.side-collapsed .side .tabs button .ti { font-size: 1.1rem; }
+body.side-collapsed .side .side-toggle { order: -1; margin: 0; font-size: 1.1rem !important; }
+@media (max-width: 1250px) {
+  body.side-collapsed .workspace { grid-template-columns: 13rem 1fr 3rem; }
+  /* iPad: keep the top bar on one row */
+  .topbar .field > span { display: none; }
+  .topbar .seg button { padding-left: .5rem; padding-right: .5rem; }
+}
+@media (max-width: 1000px) {
+  body.side-collapsed .workspace { grid-template-columns: 11rem 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  body.side-collapsed .side .tabs { flex-direction: row; }
+}
+@media (max-width: 1250px) {
+  .topbar .lbl-wide { display: none; }
+  .topbar .save-state { display: none; }
+  .topbar { gap: .25rem; }
+  .song-name { width: 5.5rem !important; }
+}
+/* Touch screens have no computer keyboard tips to show */
+@media (pointer: coarse) { .surface-bar > .faint { display: none; } }
+
+/* Instruments panel: compact cards */
+.tracks .panel-title { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
+.tracks-compact { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: .72rem; padding: .1rem .45rem; }
+body.tracks-compact .track .tinst, body.tracks-compact .track .tvol { display: none; }
+body.tracks-compact .track { padding-top: .2rem; padding-bottom: .2rem; margin-bottom: .25rem; row-gap: 0; }
+body.tracks-compact .track .stripe { grid-row: 1; }

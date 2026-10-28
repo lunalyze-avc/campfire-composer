@@ -97,7 +97,7 @@ window.CC = window.CC || {};
           h('button', { class: 'solo' + (t.solo ? ' on' : ''), 'aria-pressed': String(!!t.solo), 'data-tip': 'Solo: hear only this instrument (and other soloed ones)', onclick: (e) => { e.stopPropagation(); ui.edit('Solo', () => { t.solo = !t.solo; }, ['tracks']); } }, 'S'),
           h('button', { 'aria-label': 'More options for ' + t.name, 'data-tip': 'Rename, duplicate, move or delete', onclick: (e) => { e.stopPropagation(); trackMenu(e.currentTarget, t, i); } }, '⋯')),
         h('button', { class: 'tinst', 'data-tip': 'Click to swap this instrument for another sound. Your notes stay the same.', onclick: (e) => { e.stopPropagation(); CC.modals.library({ trackId: t.id }); } },
-          (t.kind === 'drums' ? '🥁 ' : '🎵 ') + info.name + (CC.instruments.isReady(t.instrument) ? '' : ' (loading…)') + ' ▾'),
+          info.name + (CC.instruments.isReady(t.instrument) ? '' : ' (loading…)') + ' ▾'),
         h('div', { class: 'tvol' }, '🔈',
           h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: t.volume, 'aria-label': t.name + ' volume', onclick: e => e.stopPropagation(),
             oninput: (e) => { t.volume = +e.target.value; CC.engine.refreshMix(); }, onchange: () => ui.commitOnly('Volume', []) }),

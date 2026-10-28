@@ -93,6 +93,11 @@ window.CC = window.CC || {};
   };
 
   ui.selectTrack = function (id) {
+    // Picking a different instrument switches the playable instrument to match it (piano, guitar or bass); you can still change it after
+    if (id !== state.selTrackId) {
+      const t = state.song.tracks.find(x => x.id === id), info = t && CC.instruments.info(t.instrument);
+      if (info && t.kind !== 'drums') t.view = info.view === 'guitar' || info.view === 'bass' ? info.view : 'piano';
+    }
     state.selTrackId = id;
     ui.render(['tracks', 'editor', 'side', 'surface']);
     CC.editor.scrollToNotes();

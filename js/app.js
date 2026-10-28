@@ -158,6 +158,7 @@ window.CC = window.CC || {};
     CC.editor.init();
     CC.side.init();
     CC.wave.init();
+    CC.layout.init();
     $$('[data-start]').forEach(b => b.addEventListener('click', () => {
       CC.audio.resume();
       const k = b.dataset.start;

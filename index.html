@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#0a0b0b">
 <title>Campfire Composer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6c6 12 18 18 14 34-2 9-8 14-14 14S20 49 18 40c-3-11 6-15 6-24 5 4 6 9 6 13 3-6 4-13 2-23z' fill='%23ff8a3d'/%3E%3Cpath d='M32 30c3 6 8 9 6 16-1 4-3 6-6 6s-5-2-6-6c-1-6 3-7 3-11 2 2 2 4 2 5 1-3 2-6 1-10z' fill='%23ffd166'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/app.css?v=26">
+<link rel="stylesheet" href="css/app.css?v=29">
 </head>
 <body>
 <div id="bg" aria-hidden="true"><canvas id="embers"></canvas></div>
@@ -50,8 +50,8 @@
     <div class="transport" role="group" aria-label="Playback">
       <button id="play-btn" class="btn play" data-tip="Play or stop (Space)">▶ Play</button>
       <div class="seg" role="radiogroup" aria-label="What to play">
-        <button data-playmode="section" role="radio" data-tip="Loop the section you're editing, over and over.">This section</button>
-        <button data-playmode="song" role="radio" data-tip="Play all sections in song order.">Whole song</button>
+        <button data-playmode="section" role="radio" data-tip="Loop the section you're editing, over and over."><span class="lbl-wide">This </span>section</button>
+        <button data-playmode="song" role="radio" data-tip="Play all sections in song order."><span class="lbl-wide">Whole </span>song</button>
       </div>
       <span id="pos-display" class="pos" aria-live="off">Bar 1</span>
     </div>
@@ -150,22 +150,23 @@
 <input type="file" id="file-open" accept=".campfire,.json,application/json" hidden>
 <input type="file" id="file-sample" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a" hidden>
 
-<script src="js/lib/lame.min.js?v=26"></script>
-<script src="js/theory.js?v=26"></script>
-<script src="js/engine.js?v=26"></script>
-<script src="js/instruments.js?v=26"></script>
-<script src="js/song.js?v=26"></script>
-<script src="js/generate.js?v=26"></script>
-<script src="js/storage.js?v=26"></script>
-<script src="js/theme.js?v=26"></script>
-<script src="js/export.js?v=26"></script>
-<script src="js/ui-core.js?v=26"></script>
-<script src="js/wave.js?v=26"></script>
-<script src="js/ui-editor.js?v=26"></script>
-<script src="js/ui-surface.js?v=26"></script>
-<script src="js/ui-panels.js?v=26"></script>
-<script src="js/ui-side.js?v=26"></script>
-<script src="js/ui-modals.js?v=26"></script>
-<script src="js/app.js?v=26"></script>
+<script src="js/lib/lame.min.js?v=29"></script>
+<script src="js/theory.js?v=29"></script>
+<script src="js/engine.js?v=29"></script>
+<script src="js/instruments.js?v=29"></script>
+<script src="js/song.js?v=29"></script>
+<script src="js/generate.js?v=29"></script>
+<script src="js/storage.js?v=29"></script>
+<script src="js/theme.js?v=29"></script>
+<script src="js/export.js?v=29"></script>
+<script src="js/ui-core.js?v=29"></script>
+<script src="js/wave.js?v=29"></script>
+<script src="js/ui-editor.js?v=29"></script>
+<script src="js/ui-surface.js?v=29"></script>
+<script src="js/layout.js?v=29"></script>
+<script src="js/ui-panels.js?v=29"></script>
+<script src="js/ui-side.js?v=29"></script>
+<script src="js/ui-modals.js?v=29"></script>
+<script src="js/app.js?v=29"></script>
 </body>
 </html>
