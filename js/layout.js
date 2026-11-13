@@ -1,33 +1,27 @@
 // Make room on smaller screens: fold away the side panel and the top section, and resize the playable instrument.
 window.CC = window.CC || {};
 (function (CC) {
-  const ui = CC.ui, { $, h } = ui;
+  const ui = CC.ui, { $, $$, h } = ui;
   const relayout = () => dispatchEvent(new Event('resize'));
 
   function setSide(collapsed) {
     document.body.classList.toggle('side-collapsed', collapsed);
     CC.storage.setting('sideCollapsed', collapsed);
-    const b = $('#side-toggle');
-    b.textContent = collapsed ? '«' : '»';
-    b.setAttribute('aria-label', collapsed ? 'Show the side panel' : 'Hide the side panel');
-    b.setAttribute('data-tip', collapsed ? 'Show the side panel' : 'Hide the side panel to give the grid more room');
+    $$('#side-tabs [data-tab]').forEach(b => b.classList.toggle('open', !collapsed && b.dataset.tab === ui.state.sideTab));
     relayout();
   }
   function setTop(compact) {
     document.body.classList.toggle('tl-compact', compact);
     CC.storage.setting('tlCompact', compact);
-    const b = $('#tl-toggle');
-    b.textContent = compact ? '▾ More' : '▴ Less';
-    b.setAttribute('data-tip', compact ? 'Show the song order and sound wave again' : 'Show only the sections, to give the grid and instrument more room');
+    const b = $('#tl-toggle'); if (!b) return relayout();
+    b.textContent = compact ? '▾ Sound wave' : '▴ Hide wave';
+    b.setAttribute('data-tip', compact ? 'Show the sound wave of the whole song under the lanes' : 'Hide the sound wave to give the grid more room');
     relayout();
   }
   function setCompact(on) {
     document.body.classList.toggle('tracks-compact', on);
     CC.storage.setting('tracksCompact', on);
-    const b = $('#tracks-compact');
-    b.textContent = on ? '☰ Roomy' : '≡ Compact';
-    b.setAttribute('aria-pressed', String(on));
-    b.setAttribute('data-tip', on ? 'Show each instrument\'s sound name and volume slider again' : 'Shorter instrument cards: hides the sound name and volume slider so more instruments fit (change the sound from the ⋯ menu)');
+    CC.storage.setting('laneRows', on ? 'compact' : 'roomy');
   }
   function setSurfaceHeight(px) {
     const max = Math.max(120, innerHeight * 0.55);
@@ -37,19 +31,32 @@ window.CC = window.CC || {};
   }
 
   function init() {
-    // Side panel: a button at the end of the tab row; clicking any tab while folded opens it again
+    // Helper panel: slides out of the rail on the right edge. Tap a rail button to open its panel; tap it again (or ») to tuck it away
     const tabs = $('#side-tabs');
-    tabs.appendChild(h('button', { id: 'side-toggle', class: 'side-toggle', type: 'button', onclick: (e) => { e.stopPropagation(); setSide(!document.body.classList.contains('side-collapsed')); } }));
-    tabs.addEventListener('click', (e) => { if (e.target.closest('[data-tab]') && document.body.classList.contains('side-collapsed')) setSide(false); });
-    setSide(!!CC.storage.setting('sideCollapsed'));
+    $('#side-toggle').addEventListener('click', () => setSide(true));
+    tabs.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tab]'); if (!b) return;
+      const collapsed = document.body.classList.contains('side-collapsed');
+      if (!collapsed && b.dataset.tab === ui.state.sideTab) { e.stopImmediatePropagation(); setSide(true); return; }
+      if (collapsed) setSide(false);
+      setTimeout(() => setSide(false), 0); // after the tab switched, so the right rail button lights up
+    }, true);
+    // Smaller screens start with the helper panel tucked away so the grid has room
+    const sc = CC.storage.setting('sideCollapsed');
+    setSide(sc === undefined || sc === null ? innerWidth <= 1450 : !!sc);
 
-    // Top section: show just the sections row, or everything
-    $('.timeline').appendChild(h('button', { id: 'tl-toggle', class: 'btn small tl-toggle', type: 'button', onclick: () => setTop(!document.body.classList.contains('tl-compact')) }));
-    setTop(!!CC.storage.setting('tlCompact'));
+    // The sound wave row is gone in this look, so the lanes always get that room
+    document.body.classList.add('tl-compact');
 
-    // Instruments list: compact cards
-    $('.tracks .panel-title').appendChild(h('button', { id: 'tracks-compact', class: 'btn small tracks-compact', type: 'button', onclick: () => setCompact(!document.body.classList.contains('tracks-compact')) }));
-    setCompact(!!CC.storage.setting('tracksCompact'));
+    // Instrument list: roomy rows unless you picked compact from the ☰ menu above it
+    $('.tracks .panel-title').appendChild(h('button', { class: 'lane-menu', id: 'tracks-compact', type: 'button', 'aria-label': 'Instrument row size', 'aria-haspopup': 'menu', 'data-tip': 'Row size: roomy or compact',
+      onclick: (e) => {
+        const compact = document.body.classList.contains('tracks-compact');
+        ui.menu(e.currentTarget, [
+          { label: (compact ? '\u2003 ' : '✓ ') + 'Roomy rows (name, sound and volume)', action: () => { setCompact(false); ui.render(['tracks']); } },
+          { label: (compact ? '✓ ' : '\u2003 ') + 'Compact rows (more instruments fit)', action: () => { setCompact(true); ui.render(['tracks']); } }]);
+      } }, '☰'));
+    setCompact(CC.storage.setting('laneRows') === 'compact');
 
     // Instrument height: drag the grip on top of the instrument area
     const saved = CC.storage.setting('surfaceH');
@@ -66,5 +73,30 @@ window.CC = window.CC || {};
       addEventListener('pointermove', mv); addEventListener('pointerup', up);
     });
   }
-  CC.layout = { init, setSide, setTop, setCompact };
+  // Drag a grip to resize an area. onMove gets the pointer offset from where the drag started; the size is saved for next time.
+  function dragGrip(grip, start, onMove, save, reset) {
+    grip.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const x0 = e.clientX, y0 = e.clientY, s0 = start();
+      let last = s0;
+      grip.classList.add('dragging');
+      const mv = (ev) => { last = onMove(s0, ev.clientX - x0, ev.clientY - y0); relayout(); };
+      const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); grip.classList.remove('dragging'); save(last); };
+      addEventListener('pointermove', mv); addEventListener('pointerup', up);
+    });
+    grip.addEventListener('dblclick', () => { reset(); relayout(); });
+  }
+  function setSideWidth(px) {
+    if (!px) { document.documentElement.style.removeProperty('--side-w'); return 0; }
+    px = Math.round(Math.max(200, Math.min(innerWidth - 420, px)));
+    document.documentElement.style.setProperty('--side-w', px + 'px');
+    return px;
+  }
+  function initResize() {
+    setSideWidth(CC.storage.setting('sideW'));
+    // The panel sits on the right, so dragging its left edge leftwards makes it wider
+    dragGrip($('#side-grip'), () => $('.side').getBoundingClientRect().width, (w0, dx) => setSideWidth(w0 - dx),
+      v => CC.storage.setting('sideW', v), () => { setSideWidth(0); CC.storage.setting('sideW', null); });
+  }
+  CC.layout = { init: () => { init(); initResize(); }, setSide, setTop, setCompact };
 })(window.CC);

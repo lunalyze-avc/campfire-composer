@@ -29,6 +29,7 @@ window.CC = window.CC || {};
   }
   async function update() {
     const song = S.song; if (!song) return;
+    if (!$('#wave') || !$('#wave').offsetParent) return; // wave hidden: skip the background render
     const key = soundKey(song);
     if (key === W.key && W.peaks) return drawBase();
     if (W.rendering) { W.again = true; return; }

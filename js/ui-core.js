@@ -85,6 +85,7 @@ window.CC = window.CC || {};
   // ---------- Rendering orchestration ----------
   const renderers = {};
   ui.registerRenderer = (name, fn) => { renderers[name] = fn; };
+  ui.getRenderer = (name) => renderers[name];
   ui.render = function (parts) {
     if (!state.song) return;
     CC.theory.setKeyForNames(state.song.key, state.song.scale);

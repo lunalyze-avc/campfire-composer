@@ -181,9 +181,10 @@ window.CC = window.CC || {};
     renderArrangement();
   }
   function renameSection(sec) { ui.prompt('Rename section', sec.name, v => ui.edit('Rename section', () => { sec.name = v; })); }
-  function sectionMenu(anchor, sec, i) {
+  function sectionMenu(anchor, sec, i, extra) {
     const song = S.song;
-    ui.menu(anchor, [
+    i = song.sections.indexOf(sec);
+    ui.menu(anchor, (extra || []).concat([
       { label: '✏️ Rename', action: () => renameSection(sec) },
       { label: '🎨 Color', action: () => ui.pickColor('Color for ' + sec.name, CC.song.secColor(song, sec), CC.song.SECTION_COLORS, c => ui.edit('Section color', () => { sec.color = c; }, ['timeline', 'wave'])) },
       { label: '➕ Add to end of song order', action: () => ui.edit('Add to song', () => { song.arrangement.push(sec.id); }) },
@@ -214,7 +215,7 @@ window.CC = window.CC || {};
           if (S.selSectionId === sec.id) S.selSectionId = song.sections[0].id;
         }));
       } }
-    ]);
+    ]));
   }
   function duplicateSection(sec) {
     ui.edit('Duplicate section', (song) => {
@@ -300,5 +301,5 @@ window.CC = window.CC || {};
     initTopbar();
     $('#add-track').addEventListener('click', () => CC.modals.library({ add: true }));
   }
-  CC.panels = { init, updatePlaying, changeKey, changeScale };
+  CC.panels = { init, updatePlaying, changeKey, changeScale, sectionMenu, renameSection, trackMenu, renameTrack: rename, MOOD_LABEL, fmtTime };
 })(window.CC);

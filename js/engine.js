@@ -122,7 +122,7 @@ window.CC = window.CC || {};
 
   // ---------- Live engine ----------
   const E = {
-    playing: false, mode: 'section', graph: null, song: null,
+    playing: false, mode: 'section', graph: null, song: null, cue: null, fromCue: false,
     level: 3, adaptiveLevel: 0, // 0 = follow section mood
     metronome: false, record: false, sustain: false,
     quantize: 'bar', crashOnSwitch: true,
@@ -156,7 +156,12 @@ window.CC = window.CC || {};
 
   function startPos() {
     const S = E.song;
-    if (E.mode === 'song') return { sectionId: S.arrangement[0] || CC.ui.selectedSectionId(), step: 0, arrIndex: 0 };
+    if (E.mode === 'song') {
+      // "From playhead": start at the marker the person placed on the song lanes
+      const c = E.fromCue && E.cue, cs = c && sectionById(S.arrangement[c.arrIndex]);
+      if (cs) return { sectionId: cs.id, step: Math.max(0, Math.min(sectionSteps(cs) - 1, c.step | 0)), arrIndex: c.arrIndex };
+      return { sectionId: S.arrangement[0] || CC.ui.selectedSectionId(), step: 0, arrIndex: 0 };
+    }
     if (E.mode === 'adaptive') {
       const st = currentState || 'exploration';
       return { sectionId: (S.states[st] && S.states[st].section) || CC.ui.selectedSectionId(), step: 0 };
@@ -265,7 +270,9 @@ window.CC = window.CC || {};
   E.play = async function (mode) {
     await CC.audio.resume();
     if (E.playing) E.stop();
-    E.mode = mode || E.mode;
+    // 'here' plays the whole song, starting from the playhead marker (E.cue)
+    E.fromCue = mode === 'here';
+    E.mode = (mode === 'here' ? 'song' : mode) || E.mode;
     const S = E.song;
     await CC.instruments.ensureLoaded(S.tracks.map(t => t.instrument));
     graph();
@@ -366,12 +373,18 @@ window.CC = window.CC || {};
     return { sectionId: cur.sectionId, step };
   }
 
+  let pvOut = null;
+  function previewOut(ctx) {
+    if (!pvOut || pvOut.context !== ctx) { pvOut = ctx.createGain(); pvOut.gain.value = 0.8; pvOut.connect(ctx.destination); }
+    return pvOut;
+  }
   // Preview an instrument from the library with a tiny phrase
   E.previewInstrument = async function (instrumentId) {
     await CC.audio.resume();
     await CC.instruments.ensureLoaded([instrumentId]);
     const ctx = CC.audio.ctx();
-    const G = graph();
+    // No song open yet (start screen): play straight to the speakers
+    const G = E.song ? graph() : { master: previewOut(ctx) };
     const tmp = { id: '__preview', instrument: instrumentId, synth: CC.instruments.defaultSynthParams(instrumentId), kind: instrumentId.startsWith('kit:') ? 'drums' : 'melody' };
     const info = CC.instruments.info(instrumentId);
     const t0 = ctx.currentTime + 0.05;
