@@ -22,7 +22,15 @@ window.CC = window.CC || {};
     const o = track.octave || 4;
     let lo, hi;
     if (mode(track) === 'simple') { lo = (o + 1) * 12 - 5; hi = (o + 1) * 12 + 24; }
-    else { lo = Math.max(12, o * 12 - 12); hi = Math.min(120, (o + 4) * 12); }
+    else {
+      lo = Math.max(12, o * 12 - 12); hi = Math.min(120, (o + 4) * 12);
+      // Stretch the roll so the faded notes of other instruments (like a low bass) are never cut off
+      const sec = ui.section(), clips = sec ? CC.song.activeClips(sec) : {};
+      song.tracks.forEach(t => {
+        if (t.id === track.id || t.kind === 'drums') return;
+        (clips[t.id] || []).forEach(n => { lo = Math.min(lo, Math.max(12, n.p - 2)); hi = Math.max(hi, Math.min(120, n.p + 2)); });
+      });
+    }
     const rows = [];
     for (let p = hi; p >= lo; p--) {
       const inKey = T.inScale(p, song.key, song.scale);
@@ -84,8 +92,12 @@ window.CC = window.CC || {};
         (clips[t.id] || []).forEach(n => {
           const ri = rows.findIndex(r => r.p === n.p);
           if (ri < 0) return;
-          ctx.fillStyle = 'rgba(255,255,255,0.07)';
-          ctx.fillRect(n.s * cellW + 1, ri * rowH + 2, n.l * cellW - 2, rowH - 4);
+          // faded, in that instrument's own color so you can tell them apart
+          const x = n.s * cellW + 1, y = ri * rowH + 2, w = n.l * cellW - 2, hh = rowH - 4;
+          ctx.fillStyle = t.color || '#ffffff';
+          ctx.globalAlpha = 0.22; ctx.fillRect(x, y, w, hh);
+          ctx.globalAlpha = 0.5; ctx.fillRect(x, y, 2, hh);
+          ctx.globalAlpha = 1;
         });
       });
     }

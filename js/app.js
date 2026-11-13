@@ -44,7 +44,7 @@ window.CC = window.CC || {};
       const box = $('#resume-box'); box.innerHTML = '';
       if (last && last.song && last.song.tracks) {
         box.appendChild(h('div', { class: 'resume' },
-          h('span', { style: { fontSize: '1.6rem' } }, '🔥'),
+          h('img', { src: 'icons/logo-128.png?v=41', alt: '', style: 'width:2.2rem;height:2.2rem;flex-shrink:0' }),
           h('div', { class: 'grow' }, h('b', {}, 'Continue "' + last.song.name + '"'), h('div', { class: 'faint' }, 'Last edited ' + ago(last.time))),
           h('button', { class: 'btn accent', onclick: () => ui.loadSong(last.song) }, 'Continue')));
       }
@@ -68,6 +68,38 @@ window.CC = window.CC || {};
       setTimeout(() => { const b = sub.querySelector('.choice'); b && b.focus(); }, 30);
     },
     moods() {
+      // Build a start from two choices: the world (which instruments) and the game moment (what kind of track)
+      const W = CC.song.WORLDS, M = CC.song.MOMENTS;
+      let world = CC.storage.setting('startWorld') || 'fantasy';
+      if (!W[world]) world = 'fantasy';
+      const moments = new Set(['explore']);
+      const worldGrid = h('div', { class: 'chip-grid', role: 'radiogroup', 'aria-label': 'World' });
+      const momentGrid = h('div', { class: 'chip-grid', role: 'group', 'aria-label': 'Game moments' });
+      const summary = h('div', { class: 'build-summary' });
+      const chip = (em, name, desc, on, click, role) => h('button', { class: 'pick', role, 'aria-checked': role === 'radio' ? String(on) : null, 'aria-pressed': role ? null : String(on), 'data-tip': desc || null, onclick: click }, h('span', { class: 'em' }, em), h('span', {}, name));
+      function draw() {
+        worldGrid.innerHTML = ''; momentGrid.innerHTML = '';
+        Object.entries(W).forEach(([id, w]) => worldGrid.appendChild(chip(w.emoji, w.name, w.desc, id === world, () => { world = id; CC.storage.setting('startWorld', id); draw(); }, 'radio')));
+        Object.entries(M).forEach(([id, m]) => momentGrid.appendChild(chip(m.emoji, m.name, null, moments.has(id), () => { if (moments.has(id) && moments.size > 1) moments.delete(id); else moments.add(id); draw(); })));
+        const list = [...moments], first = CC.song.moodSpec(world, list[0]);
+        summary.innerHTML = '';
+        summary.append(
+          h('div', { class: 'grow' },
+            h('b', {}, list.length === 1 ? first.name : `${list.length} songs in the ${W[world].name} world`),
+            h('small', {}, list.length === 1 ? `${first.bpm} BPM · ${first.key} ${CC.theory.SCALES[first.scale].name.split(' (')[0].toLowerCase()} · ${first.tracks.map(t => CC.instruments.info(t[0]).name).join(', ')}`
+              : list.map(id => M[id].name).join(' · ') + '. Each one is saved in Your songs.')),
+          h('button', { class: 'btn', 'aria-label': 'Preview', onclick: (e) => { const b = e.currentTarget; b.textContent = '…'; previewSong(CC.song.songFromWorld(world, list[0])).then(() => { b.textContent = '▶ Hear it'; }); } }, '▶ Hear it'),
+          h('button', { class: 'btn accent', onclick: () => makeSongs(list) }, list.length === 1 ? 'Start' : `Make ${list.length} songs`));
+      }
+      async function makeSongs(list) {
+        stopPreview();
+        const songs = list.map(id => { const sg = CC.song.songFromWorld(world, id); sg.projectId = CC.song.uid('p'); return sg; });
+        for (const sg of songs.slice(1)) await CC.storage.saveNow(sg);
+        await ui.loadSong(songs[0]);
+        ui.toast(songs.length > 1 ? `Made ${songs.length} ${W[world].name} songs. The others are waiting in Your songs on the start screen.` : W[world].emoji + ' ' + songs[0].name + ': with calmer and more intense versions for different game moments.');
+      }
+      draw();
+      // The ready-made moods from before, for a one-click start
       const grid = h('div', { class: 'choice-grid' });
       Object.entries(CC.song.MOODS).forEach(([id, m]) => {
         const card = h('div', { class: 'choice' },
@@ -77,25 +109,67 @@ window.CC = window.CC || {};
             h('button', { class: 'btn small accent', onclick: () => { stopPreview(); ui.loadSong(CC.song.songFromMood(id)); ui.toast(m.emoji + ' ' + m.name + ': we made Explore, Alert, Combat and Victory sections for you.'); } }, 'Start')));
         grid.appendChild(card);
       });
-      start.sub('Pick a game mood', h('div', {}, h('p', { class: 'muted' }, 'Each mood makes a full starter loop with matching instruments, plus calmer and more intense versions for different game moments. Then make it yours.'), grid));
+      start.sub('Build a game mood', h('div', {},
+        h('p', { class: 'muted' }, 'Pick the world your game is set in, then the kind of track you need. A cozy dungeon, a space boss fight, a spooky shop... any mix works. Pick several moments to make a matching set of songs at once.'),
+        h('h3', { class: 'step-h' }, '1. Your world'), worldGrid,
+        h('h3', { class: 'step-h' }, '2. Game moments'), momentGrid,
+        summary,
+        h('h3', { class: 'step-h' }, 'Or start from a ready-made mood'), grid));
     },
     beats() {
+      // Options that apply to whichever beat you pick
+      let kit = 'auto', speed = 'auto';
+      const kits = [['auto', 'Best match'], ['kit:acoustic', 'Band'], ['kit:electronic', 'Electronic'], ['kit:lofi', 'Soft lo-fi'], ['kit:chip', '8-bit']];
+      const speeds = [['auto', 'Best match'], ['70', 'Slow'], ['100', 'Medium'], ['128', 'Fast'], ['160', 'Very fast']];
+      const optRow = h('div', { class: 'opt-rows' });
+      const seg = (label, items, get, set) => h('div', { class: 'opt-row' }, h('span', { class: 'faint' }, label),
+        h('div', { class: 'seg', role: 'radiogroup', 'aria-label': label }, items.map(([v, n]) => h('button', { role: 'radio', 'aria-checked': String(get() === v), onclick: () => { set(v); drawOpts(); } }, n))));
+      function drawOpts() { optRow.innerHTML = ''; optRow.append(seg('Drum kit', kits, () => kit, v => { kit = v; }), seg('Speed', speeds, () => speed, v => { speed = v; })); }
+      drawOpts();
+      const opts = () => ({ kit: kit === 'auto' ? null : kit, bpm: speed === 'auto' ? null : +speed });
       const grid = h('div', { class: 'choice-grid' });
       Object.entries(CC.song.DRUM_STYLES).filter(([id]) => id !== 'fanfare').forEach(([id, st]) => {
-        grid.appendChild(h('div', { class: 'choice' }, h('span', { class: 'em' }, '🥁'), h('b', {}, st.name),
+        grid.appendChild(h('div', { class: 'choice' }, h('span', { class: 'em' }, '🥁'), h('b', {}, st.name), h('small', { class: 'faint' }, (CC.song.BEAT_BPM[id] || 110) + ' BPM · ' + CC.instruments.info(CC.song.beatKit(id)).name),
           h('div', { class: 'row' },
-            h('button', { class: 'btn small', onclick: () => previewSong(CC.song.songFromBeat(id), 2) }, '▶ Hear it'),
-            h('button', { class: 'btn small accent', onclick: () => { stopPreview(); ui.loadSong(CC.song.songFromBeat(id), { selectDrums: true }); ui.toast('Click squares in the grid to change the beat. Then pick "Bass" on the left to add notes.'); } }, 'Start'))));
+            h('button', { class: 'btn small', onclick: () => previewSong(CC.song.songFromBeat(id, opts()), 2) }, '▶ Hear it'),
+            h('button', { class: 'btn small accent', onclick: () => { stopPreview(); ui.loadSong(CC.song.songFromBeat(id, opts()), { selectDrums: true }); ui.toast('Click squares in the grid to change the beat. Then pick "Bass" in the song lanes to add notes.'); } }, 'Start'))));
       });
-      start.sub('Pick a beat to start from', grid);
+      start.sub('Pick a beat to start from', h('div', {}, optRow, grid));
     },
     melody() {
-      const opts = [['gm:acoustic_grand_piano', '🎹', 'Piano'], ['gm:flute', '🪈', 'Flute'], ['gm:clarinet', '🎷', 'Clarinet'], ['gm:vibraphone', '✨', 'Vibraphone'], ['gm:acoustic_guitar_nylon', '🎸', 'Guitar'], ['gm:ocarina', '🗺️', 'Ocarina'], ['synth:square', '👾', '8-bit lead'], ['gm:violin', '🎻', 'Violin']];
+      // Every melodic instrument in the app, grouped like the instrument library, plus a feeling for the starter tune
+      let feel = 'happy', query = '';
       const starter = h('input', { type: 'checkbox', checked: true });
-      const grid = h('div', { class: 'choice-grid' });
-      opts.forEach(([id, em, name]) => grid.appendChild(h('button', { class: 'choice', onclick: () => { ui.loadSong(CC.song.songFromMelody(id, starter.checked)); ui.toast(starter.checked ? 'Here is a starter melody. Click notes to remove them, click empty squares to add.' : 'Play the keyboard at the bottom, or click squares in the grid to place notes.'); } },
-        h('span', { class: 'em' }, em), h('b', {}, name), h('small', {}, CC.instruments.info(id).desc))));
-      start.sub('Which instrument plays your melody?', h('div', {}, h('label', { class: 'toggle', style: { marginBottom: '.8rem' } }, starter, h('span', {}, 'Give me a starter melody and chords to change')), grid));
+      const feels = h('div', { class: 'seg wrap', role: 'radiogroup', 'aria-label': 'Feeling' });
+      const drawFeels = () => { feels.innerHTML = ''; Object.entries(CC.song.MELODY_FEELS).forEach(([id, f]) => feels.appendChild(h('button', { role: 'radio', 'aria-checked': String(id === feel), onclick: () => { feel = id; drawFeels(); } }, f.name))); };
+      drawFeels();
+      const search = h('input', { type: 'text', placeholder: 'Search instruments (flute, synth, guitar…)', 'aria-label': 'Search instruments', class: 'inst-search', oninput: (e) => { query = e.target.value.trim().toLowerCase(); drawList(); } });
+      const listBox = h('div', {});
+      const cats = {};
+      CC.instruments.catalog().filter(x => x.kind === 'melody').forEach(x => { (cats[x.category] = cats[x.category] || []).push(x); });
+      function pick(id) {
+        stopPreview();
+        ui.loadSong(CC.song.songFromMelody(id, starter.checked, { feel }));
+        ui.toast(starter.checked ? 'Here is a starter melody. Click notes to remove them, click empty squares to add.' : 'Play the keyboard at the bottom, or click squares in the grid to place notes.');
+      }
+      function drawList() {
+        listBox.innerHTML = '';
+        Object.entries(cats).forEach(([cat, items]) => {
+          const shown = items.filter(x => !query || (x.name + ' ' + x.desc + ' ' + cat).toLowerCase().includes(query));
+          if (!shown.length) return;
+          listBox.append(h('h3', { class: 'step-h' }, cat), h('div', { class: 'inst-grid' }, shown.map(x => h('div', { class: 'inst-pick' },
+            h('button', { class: 'name', onclick: () => pick(x.id), 'data-tip': x.desc }, h('b', {}, x.name), h('small', {}, x.desc)),
+            h('button', { class: 'btn small icon', 'aria-label': 'Hear ' + x.name, 'data-tip': 'Hear it', onclick: () => CC.engine.previewInstrument(x.id) }, '▶')))));
+        });
+        if (!listBox.children.length) listBox.append(h('p', { class: 'muted' }, 'No instrument matches "' + query + '".'));
+      }
+      drawList();
+      start.sub('Which instrument plays your melody?', h('div', {},
+        h('div', { class: 'opt-rows' },
+          h('label', { class: 'toggle' }, starter, h('span', {}, 'Give me a starter melody and chords to change')),
+          h('div', { class: 'opt-row' }, h('span', { class: 'faint' }, 'Feeling'), feels)),
+        search, listBox));
+      setTimeout(() => search.focus(), 40);
     }
   };
   function ago(t) {
@@ -143,6 +217,7 @@ window.CC = window.CC || {};
       const ph = CC.engine.playhead();
       CC.editor.updatePlayhead(ph);
       CC.panels.updatePlaying(ph);
+      CC.lanes.frame(ph);
       CC.wave.frame(ph);
     }
     requestAnimationFrame(frame);
@@ -159,6 +234,7 @@ window.CC = window.CC || {};
     CC.side.init();
     CC.wave.init();
     CC.layout.init();
+    CC.lanes.init();
     $$('[data-start]').forEach(b => b.addEventListener('click', () => {
       CC.audio.resume();
       const k = b.dataset.start;

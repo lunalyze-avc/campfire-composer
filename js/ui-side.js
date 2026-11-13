@@ -13,6 +13,10 @@ window.CC = window.CC || {};
     const keepScroll = body.scrollTop;
     body.innerHTML = '';
     const track = ui.track();
+    // Panel heading: which helper, and which block (instrument in section) it works on
+    const tab = $(`#side-tabs [data-tab="${S.sideTab}"]`), st = $('#side-title'), sf = $('#side-for');
+    if (st && tab) st.textContent = tab.lastChild.textContent;
+    if (sf) { sf.innerHTML = ''; if (track) sf.append(h('i', { style: { background: track.color } }), track.name + ' in ' + ui.section().name); }
     ({ make: makeTab, ideas: ideasTab, vary: varyTab, sound: soundTab, game: gameTab, code: codeTab })[S.sideTab](body, track);
     body.scrollTop = keepScroll;
   }

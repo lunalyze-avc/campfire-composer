@@ -2,7 +2,7 @@
 
 Make music for your game. No instruments or experience needed.
 
-Campfire Composer runs entirely in your web browser. There's no account, no install and no server. Your songs stay on your own device.
+Campfire Composer runs entirely in your web browser, with 128 real instrument sounds (the full General MIDI set). There's no account, no install and no server. Your songs stay on your own device.
 
 **Play it:** open the GitHub Pages link for this repository.
 

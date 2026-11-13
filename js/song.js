@@ -63,6 +63,15 @@ window.CC = window.CC || {};
     tribal:   { name: 'Tribal toms', bar: { 0: [0, 8], 5: [3, 6, 11, 14], 6: [10, 15], 9: [0, 2, 4, 6, 8, 10, 12, 14] } },
     chip:     { name: 'Retro arcade', bar: { 0: [0, 8, 10], 1: [4, 12], 3: [0, 2, 4, 6, 8, 10, 12, 14] } },
     shaker:   { name: 'Gentle shaker', bar: { 0: [0, 10], 9: [0, 2, 4, 6, 8, 10, 12, 14], 8: [12] } },
+    funk:     { name: 'Funky groove', bar: { 0: [0, 3, 10], 1: [4, 12], 3: [0, 2, 4, 6, 8, 10, 12, 14], 8: [7, 15] } },
+    disco:    { name: 'Disco', bar: { 0: [0, 4, 8, 12], 1: [4, 12], 4: [2, 6, 10, 14], 3: [0, 4, 8, 12] } },
+    shuffle:  { name: 'Bouncy shuffle', bar: { 0: [0, 8], 1: [4, 12], 3: [0, 3, 4, 7, 8, 11, 12, 15] } },
+    breakbeat:{ name: 'Breakbeat (busy, energetic)', bar: { 0: [0, 2, 10, 11], 1: [4, 7, 9, 12, 15], 3: [0, 2, 4, 6, 8, 10, 12, 14] } },
+    trap:     { name: 'Trap (rolling hi-hats)', bar: { 0: [0, 7, 11], 2: [8], 3: [0, 2, 4, 6, 8, 10, 11, 12, 14, 15] } },
+    reggae:   { name: 'Island one-drop', bar: { 0: [8], 1: [8], 8: [8], 3: [2, 6, 10, 14] } },
+    bossa:    { name: 'Bossa nova (lounge)', bar: { 0: [0, 6, 8, 14], 8: [0, 3, 6, 10, 13], 9: [0, 2, 4, 6, 8, 10, 12, 14] } },
+    stealth:  { name: 'Sneaky stealth', bar: { 0: [0, 11], 8: [4, 12], 9: [2, 6, 10, 14] } },
+    gallop:   { name: 'Galloping (chase, cavalry)', bar: { 0: [0, 3, 4, 8, 11, 12], 1: [4, 12], 3: [0, 2, 4, 6, 8, 10, 12, 14] } },
     fanfare:  { name: 'Fanfare roll', bar: { 1: [0, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15], 0: [0, 8], 7: [0] } }
   };
   function drumPattern(style, bars = 4, opts = {}) {
@@ -319,8 +328,8 @@ window.CC = window.CC || {};
     return chordPart(song, prog, bars, spec.part || 'pad', spec.center || 60, seed);
   }
 
-  function songFromMood(moodId) {
-    const M = MOODS[moodId];
+  function songFromMood(moodId) { return songFromSpec(MOODS[moodId]); }
+  function songFromSpec(M) {
     const song = newSong(M.name);
     Object.assign(song, { bpm: M.bpm, key: M.key, scale: M.scale, swing: M.swing, layersFollowMood: true });
     const bars = M.bars || 4;
@@ -375,32 +384,114 @@ window.CC = window.CC || {};
     return song;
   }
 
-  function songFromBeat(style) {
+  const BEAT_BPM = { four: 124, boss: 150, chill: 88, chip: 140, march: 112, halftime: 90, tribal: 100, funk: 104, disco: 118, shuffle: 108, breakbeat: 160, trap: 140, reggae: 80, bossa: 120, stealth: 86, gallop: 150, sparse: 72, shaker: 84 };
+  function beatKit(style) { return style === 'chip' ? 'kit:chip' : /chill|bossa|reggae|shaker/.test(style) ? 'kit:lofi' : /four|boss|disco|trap|breakbeat/.test(style) ? 'kit:electronic' : 'kit:acoustic'; }
+  function songFromBeat(style, opts = {}) {
     const song = newSong('My beat');
-    song.bpm = { four: 124, boss: 150, chill: 88, chip: 140, march: 112, halftime: 90, tribal: 100 }[style] || 110;
-    if (style === 'chill') song.swing = 0.35;
-    const kit = style === 'chip' ? 'kit:chip' : style === 'chill' ? 'kit:lofi' : style === 'four' || style === 'boss' ? 'kit:electronic' : 'kit:acoustic';
+    song.bpm = opts.bpm || BEAT_BPM[style] || 110;
+    if (/chill|shuffle|bossa/.test(style)) song.swing = style === 'bossa' ? 0.15 : 0.35;
+    const kit = opts.kit || beatKit(style);
     const d = newTrack(song, kit, 'Drums'); song.tracks.push(d);
-    const b = newTrack(song, style === 'chip' ? 'synth:triangle' : 'gm:electric_bass_finger', 'Bass'); song.tracks.push(b);
-    const k = newTrack(song, style === 'chip' ? 'synth:square' : 'gm:acoustic_grand_piano', 'Melody'); song.tracks.push(k);
+    const chip = kit === 'kit:chip';
+    const b = newTrack(song, opts.bass || (chip ? 'synth:triangle' : 'gm:electric_bass_finger'), 'Bass'); song.tracks.push(b);
+    const k = newTrack(song, opts.melody || (chip ? 'synth:square' : 'gm:acoustic_grand_piano'), 'Melody'); song.tracks.push(k);
     song.sections[0].clips[d.id] = drumPattern(style, 4);
     song.sections[0].bars = 4;
     return song;
   }
 
-  function songFromMelody(instrument = 'gm:acoustic_grand_piano', withStarter = true) {
+  // Feelings for a starter melody: scale, speed, chords and how busy the tune is
+  const MELODY_FEELS = {
+    happy:      { name: 'Happy', scale: 'major', bpm: 112, prog: [0, 4, 5, 3], density: 0.65 },
+    calm:       { name: 'Calm', scale: 'majorPent', bpm: 84, prog: [0, 3, 0, 4], density: 0.4 },
+    heroic:     { name: 'Heroic', scale: 'mixolydian', bpm: 124, prog: [0, 6, 3, 0], density: 0.7 },
+    dreamy:     { name: 'Dreamy', scale: 'lydian', bpm: 80, prog: [0, 1, 0, 1], density: 0.4 },
+    sad:        { name: 'Sad', scale: 'minor', bpm: 72, prog: [0, 5, 2, 6], density: 0.4 },
+    mysterious: { name: 'Mysterious', scale: 'harmonicMinor', bpm: 82, prog: [0, 0, 5, 4], density: 0.35 },
+    adventure:  { name: 'Adventurous', scale: 'dorian', bpm: 118, prog: [0, 3, 6, 3], density: 0.65 },
+    tense:      { name: 'Tense', scale: 'phrygian', bpm: 132, prog: [0, 1, 0, 6], density: 0.6 }
+  };
+  function songFromMelody(instrument = 'gm:acoustic_grand_piano', withStarter = true, opts = {}) {
+    const F = MELODY_FEELS[opts.feel] || MELODY_FEELS.happy;
     const song = newSong('My melody');
-    song.bpm = 100;
+    song.bpm = opts.bpm || F.bpm;
+    song.scale = F.scale;
     const m = newTrack(song, instrument, 'Melody'); song.tracks.push(m);
-    const c = newTrack(song, 'gm:string_ensemble_1', 'Chords'); c.volume = 0.5; song.tracks.push(c);
+    const c = newTrack(song, opts.chords || 'gm:string_ensemble_1', 'Chords'); c.volume = 0.5; song.tracks.push(c);
     const d = newTrack(song, 'kit:lofi', 'Drums'); d.volume = 0.6; song.tracks.push(d);
+    const info = CC.instruments.info(instrument);
+    const center = Math.max(48, Math.min(84, ((info.octave || 4) + 1) * 12 + 7));
+    m.octave = Math.floor(center / 12) - 1;
     if (withStarter) {
-      const prog = [0, 4, 5, 3];
-      song.sections[0].clips[m.id] = melody(song, prog, 4, { center: 72, density: 0.6, seed: Math.floor(Math.random() * 9999) });
+      const prog = F.prog;
+      song.sections[0].prog = prog.slice();
+      song.sections[0].clips[m.id] = melody(song, prog, 4, { center, density: F.density, seed: Math.floor(Math.random() * 9999) });
       song.sections[0].clips[c.id] = chordPart(song, prog, 4, 'pad', 60);
     }
     return song;
   }
+
+  // ---------- Build a start from a world (the sound palette) and a game moment (the musical shape) ----------
+  // A world says which instruments play each role. A moment says tempo, scale, chords, beat and how each role plays.
+  const WORLDS = {
+    fantasy:  { name: 'Fantasy adventure', emoji: '🏰', desc: 'Flutes, harp, strings and choir.', key: 'G', kit: 'kit:acoustic', bass: 'gm:acoustic_bass', harm: 'gm:orchestral_harp', mel: 'gm:flute', pad: 'gm:string_ensemble_1', color: 'gm:celesta', big: 'gm:choir_aahs' },
+    cozy:     { name: 'Cozy', emoji: '🧺', desc: 'Soft, warm and gentle, even in scary places.', key: 'F', kit: 'kit:lofi', bass: 'gm:acoustic_bass', harm: 'gm:electric_piano_1', mel: 'gm:clarinet', pad: 'gm:pad_2_warm', color: 'gm:glockenspiel', big: 'gm:music_box', tempo: 0.88, swing: 0.25, soft: true },
+    space:    { name: 'Space', emoji: '🚀', desc: 'Synth pads, plucks and bells.', key: 'C', kit: 'kit:electronic', bass: 'synth:subbass', harm: 'synth:pluck', mel: 'synth:bell', pad: 'synth:softpad', color: 'gm:fx_4_atmosphere', big: 'synth:strings', scaleMap: { major: 'lydian', minor: 'dorian' } },
+    spooky:   { name: 'Spooky', emoji: '👻', desc: 'Celesta, plucked strings, ghostly voices.', key: 'A', kit: 'kit:lofi', bass: 'gm:contrabass', harm: 'gm:pizzicato_strings', mel: 'gm:celesta', pad: 'gm:voice_oohs', color: 'gm:music_box', big: 'gm:tremolo_strings', scaleMap: { major: 'harmonicMinor', majorPent: 'minorPent', mixolydian: 'phrygian', lydian: 'harmonicMinor' } },
+    retro:    { name: 'Retro 8-bit', emoji: '👾', desc: 'Old console chips, all made in code.', key: 'C', kit: 'kit:chip', bass: 'synth:triangle', harm: 'synth:pulse', mel: 'synth:square', pad: 'synth:pulse', color: 'synth:blip', big: 'synth:square', drumMap: { basic: 'chip', chill: 'chip', four: 'chip' } },
+    ocean:    { name: 'Dreamy water', emoji: '🌊', desc: 'Harp, vibraphone and floating pads.', key: 'Eb', kit: 'kit:lofi', bass: 'synth:subbass', harm: 'gm:orchestral_harp', mel: 'gm:vibraphone', pad: 'gm:pad_1_new_age', color: 'gm:kalimba', big: 'gm:voice_oohs', scaleMap: { major: 'lydian' }, tempo: 0.92 },
+    epic:     { name: 'Epic orchestra', emoji: '⚔️', desc: 'Big brass, strings, choir and timpani.', key: 'D', kit: 'kit:acoustic', bass: 'gm:contrabass', harm: 'gm:string_ensemble_1', mel: 'gm:french_horn', pad: 'gm:choir_aahs', color: 'gm:timpani', big: 'gm:brass_section' },
+    rock:     { name: 'Rock', emoji: '🎸', desc: 'Electric guitars, bass and organ.', key: 'E', kit: 'kit:acoustic', bass: 'gm:electric_bass_finger', harm: 'gm:distortion_guitar', mel: 'gm:overdriven_guitar', pad: 'gm:drawbar_organ', color: 'gm:electric_guitar_clean', big: 'gm:distortion_guitar', harmPart: 'power' },
+    neon:     { name: 'Neon city', emoji: '🌃', desc: 'Acid bass, saw leads, drum machine.', key: 'A', kit: 'kit:electronic', bass: 'synth:acid', harm: 'synth:saw', mel: 'gm:lead_2_sawtooth', pad: 'synth:strings', color: 'synth:pluck', big: 'synth:brass', drumMap: { basic: 'four', chill: 'trap', sparse: 'stealth' } },
+    eastern:  { name: 'Far east', emoji: '⛩️', desc: 'Koto, shamisen, pan flute and taiko.', key: 'D', kit: 'kit:acoustic', bass: 'gm:taiko_drum', harm: 'gm:koto', mel: 'gm:pan_flute', pad: 'gm:string_ensemble_1', color: 'gm:shamisen', big: 'gm:taiko_drum', scaleMap: { major: 'majorPent', minor: 'minorPent', dorian: 'minorPent', lydian: 'majorPent', mixolydian: 'majorPent', harmonicMinor: 'phrygian' }, drumMap: { basic: 'tribal', four: 'tribal' } },
+    desert:   { name: 'Desert ruins', emoji: '🏜️', desc: 'Sitar, oboe, dulcimer and hand drums.', key: 'E', kit: 'kit:acoustic', bass: 'gm:contrabass', harm: 'gm:sitar', mel: 'gm:oboe', pad: 'gm:voice_oohs', color: 'gm:dulcimer', big: 'gm:choir_aahs', scaleMap: { major: 'mixolydian', minor: 'harmonicMinor', dorian: 'phrygian' }, drumMap: { basic: 'tribal', chill: 'tribal' } },
+    western:  { name: 'Wild west', emoji: '🤠', desc: 'Banjo, harmonica and acoustic guitar.', key: 'D', kit: 'kit:acoustic', bass: 'gm:acoustic_bass', harm: 'gm:banjo', mel: 'gm:harmonica', pad: 'gm:accordion', color: 'gm:acoustic_guitar_steel', big: 'gm:trumpet', drumMap: { basic: 'gallop', four: 'gallop' } },
+    jazzy:    { name: 'Jazzy lounge', emoji: '🎷', desc: 'Sax, electric piano, upright bass.', key: 'Bb', kit: 'kit:lofi', bass: 'gm:acoustic_bass', harm: 'gm:electric_piano_1', mel: 'gm:alto_sax', pad: 'gm:vibraphone', color: 'gm:vibraphone', big: 'gm:brass_section', swing: 0.4, drumMap: { basic: 'bossa', four: 'bossa' } },
+    island:   { name: 'Tropical island', emoji: '🏝️', desc: 'Steel drums, marimba and kalimba.', key: 'G', kit: 'kit:lofi', bass: 'gm:acoustic_bass', harm: 'gm:marimba', mel: 'gm:steel_drums', pad: 'gm:pad_2_warm', color: 'gm:kalimba', big: 'gm:trumpet', drumMap: { basic: 'reggae', chill: 'reggae' } }
+  };
+  const MOMENTS = {
+    explore:  { name: 'Overworld / explore', emoji: '🗺️', bpm: 122, scale: 'major', prog: [0, 4, 5, 3], drums: 'basic', bass: 'bass', harm: 'strum', density: 0.65, pad: 2, color: 3 },
+    town:     { name: 'Town / home', emoji: '🏡', bpm: 96, scale: 'major', prog: [0, 3, 0, 4], drums: 'chill', bass: 'bass', harm: 'stabs', density: 0.5, color: 2, swing: 0.25 },
+    dungeon:  { name: 'Dungeon / cave', emoji: '🕯️', bpm: 76, scale: 'harmonicMinor', prog: [0, 0, 5, 4], drums: 'sparse', bass: 'longroot', harm: 'ostinato', density: 0.3, pad: 2, big: 3 },
+    forest:   { name: 'Forest / nature', emoji: '🌲', bpm: 88, scale: 'dorian', prog: [0, 3, 0, 6], drums: 'shaker', bass: 'rootfifth', harm: 'arp', density: 0.45, pad: 2 },
+    combat:   { name: 'Battle', emoji: '⚔️', bpm: 140, scale: 'minor', prog: [0, 5, 6, 4], drums: 'breakbeat', bass: 'pulse8', harm: 'arp16', density: 0.7, pad: 2, big: 3, intense: true },
+    boss:     { name: 'Boss fight', emoji: '🐉', bpm: 156, scale: 'minor', prog: [0, 5, 6, 4], drums: 'boss', bass: 'pulse8', harm: 'power', density: 0.75, pad: 2, big: 2, intense: true },
+    chase:    { name: 'Chase / race', emoji: '🏃', bpm: 150, scale: 'dorian', prog: [0, 6, 5, 6], drums: 'gallop', bass: 'pulse8', harm: 'arp16', density: 0.7, pad: 2, intense: true },
+    stealth:  { name: 'Stealth / sneaking', emoji: '🥷', bpm: 86, scale: 'minor', prog: [0, 0, 6, 0], drums: 'stealth', bass: 'ostinato', harm: 'stabs', density: 0.25, pad: 2 },
+    puzzle:   { name: 'Puzzle / thinking', emoji: '🧩', bpm: 104, scale: 'dorian', prog: [0, 3, 0, 3], drums: 'chill', bass: 'rootfifth', harm: 'arp', density: 0.45, color: 2 },
+    shop:     { name: 'Shop', emoji: '🛒', bpm: 100, scale: 'major', prog: [1, 4, 0, 0], drums: 'bossa', bass: 'bass', harm: 'stabs', density: 0.55, swing: 0.4 },
+    title:    { name: 'Title / menu', emoji: '🎬', bpm: 88, scale: 'lydian', prog: [0, 3, 5, 4], drums: 'shaker', bass: 'longroot', harm: 'arp', density: 0.45, pad: 1, big: 2 },
+    sad:      { name: 'Sad / game over', emoji: '🥀', bpm: 66, scale: 'minor', prog: [0, 5, 3, 4], drums: 'sparse', bass: 'longroot', harm: 'pad', density: 0.35 },
+    victory:  { name: 'Victory', emoji: '🏆', bpm: 120, scale: 'major', prog: [0, 3, 4, 0], drums: 'fanfare', fanfare: true, bars: 2 },
+    credits:  { name: 'Ending / credits', emoji: '🌅', bpm: 92, scale: 'major', prog: [0, 4, 5, 3], drums: 'halftime', bass: 'rootfifth', harm: 'strum', density: 0.5, pad: 2, big: 3 }
+  };
+  const SOFTER = { boss: 'halftime', breakbeat: 'funk', gallop: 'shuffle', basic: 'chill', four: 'chill', sparse: 'shaker', stealth: 'shaker' };
+  function moodSpec(worldId, momentId) {
+    const W = WORLDS[worldId] || WORLDS.fantasy, P = MOMENTS[momentId] || MOMENTS.explore;
+    const scale = (W.scaleMap && W.scaleMap[P.scale]) || P.scale;
+    let drums = (W.drumMap && W.drumMap[P.drums]) || P.drums;
+    if (W.soft && SOFTER[drums]) drums = SOFTER[drums]; // cozy keeps even battles gentle
+    const bpm = Math.round(P.bpm * (W.tempo || 1) * (W.soft && P.intense ? 0.85 : 1));
+    const name = W.name + ' ' + P.name.split(' / ')[0].toLowerCase();
+    const M = { name: name.charAt(0).toUpperCase() + name.slice(1), bpm, key: W.key, scale, swing: Math.max(W.swing || 0, P.swing || 0), prog: P.prog.slice(), bars: P.bars, fanfare: P.fanfare, tracks: [] };
+    const center = (id, def) => { const o = (CC.instruments.info(id) || {}).octave; return o ? Math.max(36, Math.min(84, (o + 1) * 12 + (def || 0))) : null; };
+    const add = (inst, name, spec) => M.tracks.push([inst, name, spec]);
+    add(W.kit, 'Drums', { drums });
+    if (P.fanfare) {
+      add(W.big, 'Fanfare', { fanfare: true, center: center(W.big, 7) || 72 });
+      add(W.pad, 'Pad', { part: 'pad', center: 60 });
+      add(W.bass, 'Bass', { part: 'rootfifth', center: 40 });
+      return M;
+    }
+    add(W.bass, 'Bass', { part: P.bass, center: center(W.bass, 4) || 40 });
+    add(W.harm, 'Chords', { part: (W.harmPart && /strum|stabs/.test(P.harm)) ? W.harmPart : P.harm, center: center(W.harm, 4) || 58, vol: 0.7 });
+    add(W.mel, 'Melody', { melody: true, center: center(W.mel, 9) || 74, density: W.soft ? Math.min(P.density, 0.5) : P.density });
+    if (P.pad) add(W.pad, 'Pad', { part: 'pad', center: 62, layer: P.pad > 1 ? P.pad : undefined, vol: 0.45 });
+    if (P.color) add(W.color, 'Sparkles', { part: 'arp', center: center(W.color, 9) || 76, layer: P.color, vol: 0.4 });
+    if (P.big) add(W.big, 'Big layer', { part: /taiko|timpani/.test(W.big) ? 'rootfifth' : 'pad', center: 64, layer: P.big, vol: 0.45 });
+    return M;
+  }
+  function songFromWorld(worldId, momentId) { return songFromSpec(moodSpec(worldId, momentId)); }
 
   function blankSong() {
     const song = newSong('Untitled song');
@@ -446,5 +537,5 @@ window.CC = window.CC || {};
     return s;
   }
 
-  CC.song = { uid, clone, rng, newSong, newSection, newTrack, activeClips, clipOf, drumPattern, DRUM_STYLES, chordPart, melody, progChords, fanfareMelody, VAR, dedupe, MOODS, songFromMood, songFromBeat, songFromMelody, blankSong, resetHistory, commit, undo, redo, lastCommitted, canUndo, canRedo, normalize, COLORS, SECTION_COLORS, secColor };
+  CC.song = { uid, clone, rng, newSong, newSection, newTrack, activeClips, clipOf, drumPattern, DRUM_STYLES, chordPart, melody, progChords, fanfareMelody, VAR, dedupe, MOODS, songFromMood, songFromBeat, songFromMelody, blankSong, resetHistory, commit, undo, redo, lastCommitted, canUndo, canRedo, normalize, COLORS, SECTION_COLORS, secColor, WORLDS, MOMENTS, moodSpec, songFromWorld, MELODY_FEELS, BEAT_BPM, beatKit };
 })(window.CC);

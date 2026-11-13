@@ -97,7 +97,9 @@ window.CC = window.CC || {};
       ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     function spawn(initial) {
-      return { x: Math.random() * w, y: initial ? Math.random() * hgt : hgt + 10, r: 1 + Math.random() * 2.2, vy: 12 + Math.random() * 30, vx: (Math.random() - 0.5) * 10, life: 0, max: 6 + Math.random() * 10, ph: Math.random() * 6.28 };
+      const y = initial ? Math.random() * hgt : hgt + 10, vy = 18 + Math.random() * 34;
+      // Live long enough to drift most or all of the way up the window
+      return { x: Math.random() * w, y, r: 1 + Math.random() * 2.2, vy, vx: (Math.random() - 0.5) * 10, life: 0, max: (y + 20) / vy * (0.8 + Math.random() * 0.35), ph: Math.random() * 6.28 };
     }
     // One soft glowing dot, drawn once and stamped for every spark (much cheaper than blur)
     let sprite = null, spriteKey = '';
@@ -133,7 +135,7 @@ window.CC = window.CC || {};
       on = want;
       if (on) {
         resize(); if (!ctx) { on = false; return; }
-        parts = Array.from({ length: Math.round(Math.min(40, w / 45)) }, () => spawn(true));
+        parts = Array.from({ length: Math.round(Math.min(60, w / 30)) }, () => spawn(true));
         last = performance.now(); raf = requestAnimationFrame(step);
       } else { cancelAnimationFrame(raf); if (ctx) ctx.clearRect(0, 0, w, hgt); }
     }
